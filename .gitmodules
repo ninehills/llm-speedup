@@ -1,0 +1,6 @@
+[submodule "llm-compressor"]
+	path = llm-compressor
+	url = https://github.com/vllm-project/llm-compressor.git
+[submodule "SpecForge"]
+	path = SpecForge
+	url = https://github.com/sgl-project/SpecForge.git
