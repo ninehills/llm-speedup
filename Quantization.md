@@ -15,7 +15,7 @@
 conda create -n llm-speedup python==3.12
 conda activate llm-speedup
 
-pip install "vllm==0.10.2" "sglang==0.5.2" "evalscope[perf]==1.0.1" langdetect immutabledict
+pip install "vllm==0.10.2" "sglang[all]==0.5.2" "evalscope[perf]==1.0.1" langdetect immutabledict
 cd llm-compressor
 pip install -e ./
 
