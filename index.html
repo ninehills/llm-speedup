@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qwen3-4B-Instruct-2207 量化效果和性能对比展示</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0f1f3;
+  --panel-bg: #ffffff;
+  --panel-border: #e2e4e9;
+  --text-primary: #1a1d23;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --green: #34d399;
+  --green-bg: #d1fae5;
+  --green-dark: #059669;
+  --pink: #fb7185;
+  --pink-bg: #ffe4e6;
+  --pink-dark: #e11d48;
+  --orange: #f97316;
+  --orange-bg: #333333;
+  --blue: #3b82f6;
+  --blue-bg: #2563eb;
+  --pending: #e5e7eb;
+  --pending-border: #d1d5db;
+  --current-border: #9ca3af;
+  --winner-border: #34d399;
+  --grid-gap: 4px;
+  --grid-size: 28px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --font-sans: 'Noto Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Source Han Sans SC',
+    'Heiti SC', 'SimHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'SF Mono', 'Consolas',
+    'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC',
+    'Source Han Sans SC', 'SimHei', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Title ─── */
+.title-bar {
+  text-align: center;
+  padding: 32px 24px 20px;
+}
+.title-bar h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+  color: var(--text-primary);
+  transition: all 0.4s ease;
+}
+
+/* ─── Tabs ─── */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px 20px;
+}
+.tab {
+  padding: 8px 28px;
+  border: 2px solid var(--panel-border);
+  border-radius: 100px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--panel-bg);
+  transition: all 0.2s;
+  user-select: none;
+}
+.tab:hover { border-color: var(--text-muted); color: var(--text-primary); }
+.tab.active {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: #fff;
+}
+
+/* ─── Controls ─── */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 24px 24px;
+  align-items: center;
+}
+.btn {
+  padding: 8px 28px;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s;
+  user-select: none;
+}
+.btn-start {
+  background: var(--text-primary);
+  color: #fff;
+}
+.btn-start:hover { background: #2d3139; }
+.btn-start:disabled { opacity: 0.4; cursor: default; }
+.btn-reset {
+  background: var(--panel-bg);
+  color: var(--text-secondary);
+  border: 2px solid var(--panel-border);
+}
+.btn-reset:hover { border-color: var(--text-muted); }
+.btn-showall {
+  background: var(--panel-bg);
+  color: var(--blue);
+  border: 2px solid var(--blue);
+}
+.btn-showall:hover { background: #eff6ff; }
+
+/* ─── Panels ─── */
+.panels {
+  display: flex;
+  gap: 20px;
+  padding: 0 24px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.panel {
+  flex: 1;
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
+}
+.panel.winner {
+  border-color: var(--winner-border);
+  box-shadow: 0 0 0 1px var(--winner-border);
+}
+
+/* Panel header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.panel-metrics {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.model-name {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.model-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 100px;
+  color: #fff;
+}
+.model-label.orange { background: var(--orange); }
+.model-label.blue { background: var(--blue); }
+.token-badge {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 100px;
+  color: #fff;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+.token-badge.orange { background: var(--orange-bg); }
+.token-badge.blue { background: var(--blue-bg); }
+.speed-badge {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 100px;
+  white-space: nowrap;
+  border: 1.5px solid var(--panel-border);
+  color: var(--text-secondary);
+  background: #f9fafb;
+}
+
+/* Progress row */
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.progress-pct {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.progress-timer {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Grid */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--grid-gap);
+  margin-bottom: 12px;
+}
+.grid-cell {
+  width: var(--grid-size);
+  height: var(--grid-size);
+  border-radius: 4px;
+  transition: background-color 0.15s, border-color 0.15s;
+  border: 1.5px solid var(--pending-border);
+  background: var(--pending);
+  cursor: pointer;
+}
+.grid-cell:hover { opacity: 0.8; }
+.grid-cell.correct {
+  background: var(--green);
+  border-color: var(--green);
+}
+.grid-cell.wrong {
+  background: var(--pink);
+  border-color: var(--pink);
+}
+.grid-cell.current {
+  border-color: var(--current-border);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--current-border);
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.legend-dot.green { background: var(--green); }
+.legend-dot.pink { background: var(--pink); }
+
+/* Thin progress bar */
+.thin-bar {
+  height: 3px;
+  background: #f3f4f6;
+  border-radius: 2px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.thin-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.thin-bar-fill.orange { background: var(--orange); }
+.thin-bar-fill.blue { background: var(--blue); }
+
+/* Question card */
+.question-card {
+  border: 1.5px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  flex: 1;
+}
+.question-card.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.question-card.selected .qc-response::after {
+  content: none !important;
+  animation: none !important;
+}
+.qc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--panel-border);
+  background: #fafbfc;
+  flex-wrap: wrap;
+}
+.qc-subject {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.qc-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.qc-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: none;
+  white-space: nowrap;
+}
+.qc-tag.correct {
+  background: var(--green-bg);
+  color: var(--green-dark);
+}
+.qc-tag.wrong {
+  background: var(--pink-bg);
+  color: var(--pink-dark);
+}
+.qc-tag.time {
+  background: #f3f4f6;
+  color: var(--text-secondary);
+}
+.qc-tag.token {
+  cursor: pointer;
+  background: #eff6ff;
+  color: var(--blue);
+}
+.qc-tag.token:hover { background: #dbeafe; }
+.qc-timer {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.qc-body {
+  padding: 12px 14px;
+  flex: 1;
+  overflow: hidden;
+}
+.qc-prompt {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  max-height: 70px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+.qc-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.qc-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--panel-border);
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  line-height: 1.4;
+  transition: all 0.2s;
+}
+.qc-choice .letter {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+.qc-choice.selected-correct {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+.qc-choice.selected-correct .letter {
+  background: var(--green);
+  color: #fff;
+}
+.qc-choice.selected-wrong {
+  border-color: var(--pink);
+  background: var(--pink-bg);
+}
+.qc-choice.selected-wrong .letter {
+  background: var(--pink);
+  color: #fff;
+}
+.qc-choice.answer-reference {
+  box-shadow: inset 0 0 0 1px var(--blue);
+  background: #eff6ff;
+}
+.qc-choice.answer-reference .letter {
+  background: var(--blue);
+  color: #fff;
+}
+.qc-response {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-height: 60px;
+  overflow: hidden;
+  position: relative;
+}
+.qc-response.streaming::after {
+  content: '|';
+  animation: blink 0.5s step-end infinite;
+  color: var(--blue);
+  font-weight: 700;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Inline modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.modal-overlay.visible { display: flex; }
+.modal-card {
+  width: min(820px, 100%);
+  max-height: min(80vh, 900px);
+  background: var(--panel-bg);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--panel-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--panel-border);
+  background: #fafbfc;
+}
+.modal-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.modal-subtitle {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.modal-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-content {
+  padding: 18px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 16px 24px 24px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .panels { flex-direction: column; }
+  .title-bar h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1 id="mainTitle">Qwen3-4B-Instruct-2207 量化效果和性能对比展示</h1>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-ds="math_500">Math 500</div>
+  <div class="tab" data-ds="iquiz">IQuiz</div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-start" id="startBtn" onclick="startDemo()">开始演示</button>
+  <button class="btn btn-showall" onclick="showAll()">显示全部</button>
+  <button class="btn btn-reset" onclick="resetDemo()">重置</button>
+</div>
+
+<div class="panels">
+  <!-- BF16 Panel -->
+  <div class="panel" id="panel-bf16">
+    <div class="panel-header">
+      <span class="model-name">Qwen3-4B-Instruct-2507</span>
+      <span class="model-label orange">BF16</span>
+      <div class="panel-metrics">
+        <div class="token-badge orange" id="badge-bf16">BF16</div>
+        <div class="speed-badge" id="speed-bf16">-- tok/s</div>
+      </div>
+    </div>
+    <div class="progress-row">
+      <span class="progress-pct" id="pct-bf16">0% 完成</span>
+      <span class="progress-timer" id="timer-bf16">&#9201; 0m00.00s</span>
+    </div>
+    <div class="grid" id="grid-bf16"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot green"></div><span id="leg-correct-bf16">正确</span></div>
+      <div class="legend-item"><div class="legend-dot pink"></div><span id="leg-wrong-bf16">错误</span></div>
+    </div>
+    <div class="thin-bar"><div class="thin-bar-fill orange" id="bar-bf16"></div></div>
+    <div class="question-card empty" id="qcard-bf16">等待开始...</div>
+  </div>
+
+  <!-- W4A16 Panel -->
+  <div class="panel" id="panel-w4a16">
+    <div class="panel-header">
+      <span class="model-name">Qwen3-4B-Instruct-2507</span>
+      <span class="model-label blue">W4A16</span>
+      <div class="panel-metrics">
+        <div class="token-badge blue" id="badge-w4a16">W4A16</div>
+        <div class="speed-badge" id="speed-w4a16">-- tok/s</div>
+      </div>
+    </div>
+    <div class="progress-row">
+      <span class="progress-pct" id="pct-w4a16">0% 完成</span>
+      <span class="progress-timer" id="timer-w4a16">&#9201; 0m00.00s</span>
+    </div>
+    <div class="grid" id="grid-w4a16"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot green"></div><span id="leg-correct-w4a16">正确</span></div>
+      <div class="legend-item"><div class="legend-dot pink"></div><span id="leg-wrong-w4a16">错误</span></div>
+    </div>
+    <div class="thin-bar"><div class="thin-bar-fill blue" id="bar-w4a16"></div></div>
+    <div class="question-card empty" id="qcard-w4a16">等待开始...</div>
+  </div>
+</div>
+
+<div class="footer">
+  Math-500 和 IQuiz 各取 100 题样本。&nbsp;
+  Qwen3-4B-Instruct-2507 BF16 原始精度 vs GPTQ W4A16-G128 量化。&nbsp;
+  结果仅供参考，实际效果可能有所不同。
+</div>
+
+<div class="modal-overlay" id="contentModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="contentModalTitle">原始内容</div>
+      <div class="modal-subtitle" id="contentModalSubtitle"></div>
+      <button class="modal-close" type="button" onclick="closeContentModal()">&times;</button>
+    </div>
+    <div class="modal-content" id="contentModalBody"></div>
+  </div>
+</div>
+
+<script>
+let DATA = { bf16: null, w4a16: null };
+let currentDs = 'math_500';
+let running = false;
+let rafId = null;
+// Track which results are revealed for click events
+let revealedState = { bf16: new Set(), w4a16: new Set() };
+let selectedCardState = { bf16: null, w4a16: null };
+
+const DEMO_DURATION = 30;
+
+async function loadData() {
+  const [r1, r2] = await Promise.all([
+    fetch('eval_bf16.json').then(r => r.json()),
+    fetch('eval_w4a16.json').then(r => r.json())
+  ]);
+  DATA.bf16 = r1;
+  DATA.w4a16 = r2;
+  initGrids();
+  resetSpeedBadges();
+  resetSelectedCards();
+}
+loadData();
+
+// ─── Tabs ───
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    if (running) return;
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentDs = t.dataset.ds;
+    resetDemo();
+  });
+});
+
+// ─── Grid init ───
+function initGrids() {
+  revealedState = { bf16: new Set(), w4a16: new Set() };
+  ['bf16', 'w4a16'].forEach(id => {
+    const grid = document.getElementById('grid-' + id);
+    grid.innerHTML = '';
+    for (let i = 0; i < 100; i++) {
+      const c = document.createElement('div');
+      c.className = 'grid-cell';
+      c.id = `cell-${id}-${i}`;
+      c.addEventListener('click', () => onCellClick(id, i));
+      grid.appendChild(c);
+    }
+  });
+}
+
+// ─── Cell click → show detail ───
+function onCellClick(panelId, idx) {
+  if (!revealedState[panelId].has(idx)) return;
+  selectedCardState[panelId] = idx;
+  renderSelectedCard(panelId);
+}
+
+// ─── Helpers ───
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m${s < 10 ? '0' : ''}${s.toFixed(2)}s`;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function truncate(s, n) {
+  return s.length <= n ? s : s.slice(0, n) + '...';
+}
+
+function parseIquizPrompt(prompt) {
+  const qMatch = prompt.match(/问题：([\s\S]*?)(?=\n选项：)/);
+  const question = qMatch ? qMatch[1].trim() : prompt.slice(0, 200);
+  const choices = [];
+  const cMatches = prompt.matchAll(/([A-D])\)\s*(.+)/g);
+  for (const m of cMatches) {
+    choices.push({ letter: m[1], text: m[2].trim() });
+  }
+  return { question, choices };
+}
+
+function extractAnswer(response) {
+  const m = response.match(/答案[：:]\s*([A-D])/);
+  return m ? m[1] : null;
+}
+
+function renderSelectedCard(panelId) {
+  const idx = selectedCardState[panelId];
+  if (idx == null) return;
+  const item = DATA[panelId][currentDs].results[idx];
+  const qcard = document.getElementById('qcard-' + panelId);
+  qcard.className = 'question-card selected';
+  qcard.innerHTML = buildQuestionCard(item, panelId, 'selected');
+}
+
+function resetSelectedCards() {
+  selectedCardState = { bf16: null, w4a16: null };
+}
+
+function openContentModal(panelId, idx, type) {
+  const item = DATA[panelId][currentDs].results[idx];
+  const modelLabel = panelId === 'bf16' ? 'BF16' : 'W4A16';
+  document.getElementById('contentModalTitle').textContent = `第 ${idx + 1} 题 · ${type === 'prompt' ? '原始输入' : '原始输出'}`;
+  document.getElementById('contentModalSubtitle').textContent = `${currentDs === 'math_500' ? 'Math 500' : 'IQuiz'} · ${modelLabel}`;
+  document.getElementById('contentModalBody').textContent = type === 'prompt' ? item.prompt : item.response;
+  document.getElementById('contentModal').classList.add('visible');
+}
+
+function closeContentModal() {
+  document.getElementById('contentModal').classList.remove('visible');
+}
+
+document.getElementById('contentModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeContentModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeContentModal();
+});
+
+// ─── Build question card ───
+function buildQuestionCard(item, panelId, state) {
+  const isMath = item.dataset === 'math_500';
+  const subject = isMath ? '数学' : (item.subset === 'IQ' ? '智力测试' : '情商测试');
+  const showMeta = state === 'done' || state === 'selected';
+  const showFullContent = state === 'done' || state === 'selected';
+  const idx = item.index;
+
+  let metaHtml = `<span class="qc-timer">&#9201; ${item.elapsed_seconds.toFixed(2)}s</span>`;
+  if (showMeta) {
+    metaHtml = `
+      <div class="qc-meta">
+        <span class="qc-tag ${item.correct ? 'correct' : 'wrong'}">${item.correct ? '正确' : '错误'}</span>
+        <span class="qc-tag time">耗时 ${item.elapsed_seconds.toFixed(3)}s</span>
+        <button class="qc-tag token" type="button" onclick="openContentModal('${panelId}', ${idx}, 'prompt')">输入 ${item.input_tokens} tokens</button>
+        <button class="qc-tag token" type="button" onclick="openContentModal('${panelId}', ${idx}, 'response')">输出 ${item.output_tokens} tokens</button>
+      </div>`;
+  }
+
+  let html = `
+    <div class="qc-header">
+      <span class="qc-subject">${subject}</span>
+      ${metaHtml}
+    </div>
+    <div class="qc-body">`;
+
+  if (isMath) {
+    html += `<div class="qc-prompt">${escHtml(truncate(item.prompt, 300))}</div>`;
+    if (showFullContent) {
+      html += `<div class="qc-response">${escHtml(truncate(item.response, 200))}</div>`;
+    } else {
+      html += `<div class="qc-response streaming" id="stream-${panelId}"></div>`;
+    }
+  } else {
+    const parsed = parseIquizPrompt(item.prompt);
+    html += `<div class="qc-prompt">${escHtml(truncate(parsed.question, 200))}</div>`;
+    if (parsed.choices.length > 0) {
+      const chosen = showFullContent ? extractAnswer(item.response) : null;
+      const answer = showFullContent ? item.answer?.trim() : null;
+      html += '<div class="qc-choices">';
+      for (const c of parsed.choices) {
+        const classes = [];
+        if (chosen === c.letter) {
+          classes.push(item.correct ? 'selected-correct' : 'selected-wrong');
+        }
+        if (!item.correct && answer === c.letter) {
+          classes.push('answer-reference');
+        }
+        html += `<div class="qc-choice ${classes.join(' ')}"><span class="letter">${c.letter}</span><span>${escHtml(truncate(c.text, 40))}</span></div>`;
+      }
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// ─── Shared time flow ───
+function computeSchedule(results) {
+  const cumTimes = [];
+  let totalReal = 0;
+  for (const item of results) {
+    totalReal += item.elapsed_seconds;
+    cumTimes.push(totalReal);
+  }
+  return { totalReal, cumTimes };
+}
+
+function solveAccelerationRate(maxRealTime) {
+  if (maxRealTime <= DEMO_DURATION) return 0;
+
+  let lo = 0;
+  let hi = 1;
+  const f = (k) => (Math.exp(k * DEMO_DURATION) - 1) / k - maxRealTime;
+
+  while (f(hi) < 0) hi *= 2;
+
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    if (f(mid) >= 0) hi = mid;
+    else lo = mid;
+  }
+
+  return (lo + hi) / 2;
+}
+
+function getSharedRealTime(demoTime, accelRate) {
+  const clamped = Math.min(DEMO_DURATION, Math.max(0, demoTime));
+  if (accelRate === 0) return clamped;
+  return (Math.exp(accelRate * clamped) - 1) / accelRate;
+}
+
+function formatTokSpeed(tokens, seconds) {
+  if (!seconds) return '-- tok/s';
+  const speed = tokens / seconds;
+  return `${speed >= 100 ? Math.round(speed) : speed.toFixed(1)} tok/s`;
+}
+
+function updateAverageSpeedBadges() {
+  if (!DATA.bf16 || !DATA.w4a16) return;
+  document.getElementById('speed-bf16').textContent = `${DATA.bf16[currentDs].avg_tokens_per_second} tok/s`;
+  document.getElementById('speed-w4a16').textContent = `${DATA.w4a16[currentDs].avg_tokens_per_second} tok/s`;
+}
+
+function resetSpeedBadges() {
+  document.getElementById('speed-bf16').textContent = '-- tok/s';
+  document.getElementById('speed-w4a16').textContent = '-- tok/s';
+}
+
+function setLiveSpeedBadge(id, item) {
+  document.getElementById('speed-' + id).textContent = formatTokSpeed(item.output_tokens, item.elapsed_seconds);
+}
+
+// ─── Show All (skip animation) ───
+function showAll() {
+  if (!DATA.bf16 || !DATA.w4a16) return;
+  if (running) { cancelAnimationFrame(rafId); rafId = null; running = false; }
+
+  const bf16Results = DATA.bf16[currentDs].results;
+  const w4a16Results = DATA.w4a16[currentDs].results;
+  const bf16Sched = computeSchedule(bf16Results);
+  const w4a16Sched = computeSchedule(w4a16Results);
+
+  initGrids();
+  ['bf16', 'w4a16'].forEach(id => {
+    document.getElementById('panel-' + id).classList.remove('winner');
+  });
+
+  function revealAll(id, results, sched) {
+    let correct = 0, wrong = 0, totalTokens = 0;
+    const n = results.length;
+    for (let i = 0; i < n; i++) {
+      const item = results[i];
+      const cell = document.getElementById(`cell-${id}-${i}`);
+      if (item.correct) {
+        cell.className = 'grid-cell correct';
+        correct++;
+      } else {
+        cell.className = 'grid-cell wrong';
+        wrong++;
+      }
+      totalTokens += item.output_tokens;
+      revealedState[id].add(i);
+    }
+    document.getElementById('pct-' + id).textContent = '100% 完成';
+    document.getElementById('timer-' + id).innerHTML = `&#9201; ${fmtTime(sched.totalReal)}`;
+    document.getElementById('badge-' + id).textContent = totalTokens.toLocaleString() + ' tokens';
+    document.getElementById('leg-correct-' + id).textContent = `正确 ${correct}/100`;
+    document.getElementById('leg-wrong-' + id).textContent = `错误 ${wrong}/100`;
+    document.getElementById('bar-' + id).style.width = '100%';
+
+    // Show last question card
+    const qcard = document.getElementById('qcard-' + id);
+    qcard.className = 'question-card';
+    qcard.innerHTML = buildQuestionCard(results[n - 1], id, 'done');
+  }
+
+  revealAll('bf16', bf16Results, bf16Sched);
+  revealAll('w4a16', w4a16Results, w4a16Sched);
+
+  // Mark winner
+  if (bf16Sched.totalReal < w4a16Sched.totalReal) {
+    document.getElementById('panel-bf16').classList.add('winner');
+  } else {
+    document.getElementById('panel-w4a16').classList.add('winner');
+  }
+
+  updateAverageSpeedBadges();
+  document.getElementById('startBtn').disabled = false;
+}
+
+// ─── Main animation ───
+function startDemo() {
+  if (running || !DATA.bf16 || !DATA.w4a16) return;
+  running = true;
+  document.getElementById('startBtn').disabled = true;
+
+  const bf16Results = DATA.bf16[currentDs].results;
+  const w4a16Results = DATA.w4a16[currentDs].results;
+  const bf16Sched = computeSchedule(bf16Results);
+  const w4a16Sched = computeSchedule(w4a16Results);
+  const maxRealTime = Math.max(bf16Sched.totalReal, w4a16Sched.totalReal);
+  const accelRate = solveAccelerationRate(maxRealTime);
+
+  const state = {
+    bf16: { idx: 0, correct: 0, wrong: 0, totalTokens: 0, done: false },
+    w4a16: { idx: 0, correct: 0, wrong: 0, totalTokens: 0, done: false }
+  };
+
+  initGrids();
+  resetSpeedBadges();
+  resetSelectedCards();
+  ['bf16', 'w4a16'].forEach(id => {
+    document.getElementById('panel-' + id).classList.remove('winner');
+    const qcard = document.getElementById('qcard-' + id);
+    qcard.className = 'question-card empty';
+    qcard.innerHTML = '';
+  });
+
+  const startTs = performance.now();
+
+  function tick() {
+    const elapsed = (performance.now() - startTs) / 1000;
+    const demoTime = Math.min(elapsed, DEMO_DURATION);
+    const realTime = getSharedRealTime(demoTime, accelRate);
+
+    updatePanel('bf16', bf16Results, bf16Sched, state.bf16, realTime);
+    updatePanel('w4a16', w4a16Results, w4a16Sched, state.w4a16, realTime);
+    const bothDone = state.bf16.done && state.w4a16.done;
+
+    if (!bothDone && demoTime < DEMO_DURATION) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      finalize('bf16', bf16Results, bf16Sched, state.bf16);
+      finalize('w4a16', w4a16Results, w4a16Sched, state.w4a16);
+      if (bf16Sched.totalReal < w4a16Sched.totalReal) {
+        document.getElementById('panel-bf16').classList.add('winner');
+      } else {
+        document.getElementById('panel-w4a16').classList.add('winner');
+      }
+      updateAverageSpeedBadges();
+      running = false;
+      document.getElementById('startBtn').disabled = false;
+    }
+  }
+
+  function updatePanel(id, results, sched, st, realTime) {
+    if (st.done) return;
+    const n = results.length;
+
+    while (st.idx < n && sched.cumTimes[st.idx] <= realTime) {
+      const item = results[st.idx];
+      const cell = document.getElementById(`cell-${id}-${st.idx}`);
+      if (item.correct) {
+        cell.className = 'grid-cell correct';
+        st.correct++;
+      } else {
+        cell.className = 'grid-cell wrong';
+        st.wrong++;
+      }
+      st.totalTokens += item.output_tokens;
+      revealedState[id].add(st.idx);
+      st.idx++;
+    }
+
+    const pct = Math.round(st.idx / n * 100);
+    document.getElementById('pct-' + id).textContent = `${pct}% 完成`;
+
+    const shownRealTime = Math.min(realTime, sched.totalReal);
+    document.getElementById('timer-' + id).innerHTML = `&#9201; ${fmtTime(shownRealTime)}`;
+
+    document.getElementById('badge-' + id).textContent =
+      st.totalTokens > 0 ? st.totalTokens.toLocaleString() + ' tokens' : (id === 'bf16' ? 'BF16' : 'W4A16');
+
+    document.getElementById('leg-correct-' + id).textContent = st.correct > 0 ? `正确 ${st.correct}/100` : '正确';
+    document.getElementById('leg-wrong-' + id).textContent = st.wrong > 0 ? `错误 ${st.wrong}/100` : '错误';
+
+    document.getElementById('bar-' + id).style.width = `${pct}%`;
+
+    if (st.idx < n) {
+      const curCell = document.getElementById(`cell-${id}-${st.idx}`);
+      curCell.className = 'grid-cell current';
+    }
+
+    const qcard = document.getElementById('qcard-' + id);
+    if (selectedCardState[id] != null && revealedState[id].has(selectedCardState[id])) {
+      renderSelectedCard(id);
+      return;
+    }
+
+    if (st.idx >= n) {
+      st.done = true;
+      document.getElementById('speed-' + id).textContent = `${DATA[id][currentDs].avg_tokens_per_second} tok/s`;
+      qcard.className = 'question-card';
+      qcard.innerHTML = buildQuestionCard(results[n - 1], id, 'done');
+    } else if (st.idx > 0) {
+      const curItem = results[st.idx];
+      setLiveSpeedBadge(id, curItem);
+      qcard.className = 'question-card';
+      qcard.innerHTML = buildQuestionCard(curItem, id, 'streaming');
+      const streamEl = document.getElementById('stream-' + id);
+      if (streamEl) {
+        const itemStart = st.idx === 0 ? 0 : sched.cumTimes[st.idx - 1];
+        const itemEnd = sched.cumTimes[st.idx];
+        const frac = itemEnd === itemStart ? 1 : Math.min(1, Math.max(0, (realTime - itemStart) / (itemEnd - itemStart)));
+        const text = truncate(curItem.response, 200);
+        streamEl.textContent = text.slice(0, Math.floor(text.length * frac));
+      }
+    } else {
+      const curItem = results[0];
+      setLiveSpeedBadge(id, curItem);
+      qcard.className = 'question-card';
+      qcard.innerHTML = buildQuestionCard(curItem, id, 'streaming');
+      const streamEl = document.getElementById('stream-' + id);
+      if (streamEl) {
+        const frac = sched.cumTimes[0] === 0 ? 1 : Math.min(1, Math.max(0, realTime / sched.cumTimes[0]));
+        const text = truncate(curItem.response, 200);
+        streamEl.textContent = text.slice(0, Math.floor(text.length * frac));
+      }
+    }
+  }
+
+  function finalize(id, results, sched, st) {
+    const n = results.length;
+    while (st.idx < n) {
+      const item = results[st.idx];
+      const cell = document.getElementById(`cell-${id}-${st.idx}`);
+      if (item.correct) {
+        cell.className = 'grid-cell correct';
+        st.correct++;
+      } else {
+        cell.className = 'grid-cell wrong';
+        st.wrong++;
+      }
+      st.totalTokens += item.output_tokens;
+      revealedState[id].add(st.idx);
+      st.idx++;
+    }
+    st.done = true;
+    document.getElementById('pct-' + id).textContent = '100% 完成';
+    document.getElementById('timer-' + id).innerHTML = `&#9201; ${fmtTime(sched.totalReal)}`;
+    document.getElementById('badge-' + id).textContent = st.totalTokens.toLocaleString() + ' tokens';
+    document.getElementById('speed-' + id).textContent = `${DATA[id][currentDs].avg_tokens_per_second} tok/s`;
+    document.getElementById('leg-correct-' + id).textContent = `正确 ${st.correct}/100`;
+    document.getElementById('leg-wrong-' + id).textContent = `错误 ${st.wrong}/100`;
+    document.getElementById('bar-' + id).style.width = '100%';
+
+    const qcard = document.getElementById('qcard-' + id);
+    if (selectedCardState[id] != null && revealedState[id].has(selectedCardState[id])) {
+      renderSelectedCard(id);
+      return;
+    }
+    qcard.className = 'question-card';
+    qcard.innerHTML = buildQuestionCard(results[n - 1], id, 'done');
+  }
+
+  rafId = requestAnimationFrame(tick);
+}
+
+function resetDemo() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  running = false;
+  document.getElementById('startBtn').disabled = false;
+  initGrids();
+  resetSpeedBadges();
+  resetSelectedCards();
+  ['bf16', 'w4a16'].forEach(id => {
+    document.getElementById('panel-' + id).classList.remove('winner');
+    document.getElementById('pct-' + id).textContent = '0% 完成';
+    document.getElementById('timer-' + id).innerHTML = '&#9201; 0m00.00s';
+    document.getElementById('badge-' + id).textContent = id === 'bf16' ? 'BF16' : 'W4A16';
+    document.getElementById('leg-correct-' + id).textContent = '正确';
+    document.getElementById('leg-wrong-' + id).textContent = '错误';
+    document.getElementById('bar-' + id).style.width = '0%';
+    const qcard = document.getElementById('qcard-' + id);
+    qcard.className = 'question-card empty';
+    qcard.innerHTML = '等待开始...';
+  });
+}
+</script>
+</body>
+</html>
