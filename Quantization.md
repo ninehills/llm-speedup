@@ -8,18 +8,14 @@
 - Windows 11 + WSL2
 - Driver Version: 581.29
 
-安装软件环境（依赖conda: https://conda-forge.org/download/）
+安装软件环境（依赖conda: https://conda-forge.org/download/ and [uv](https://docs.astral.sh/uv/getting-started/installation/)）
 
 ```bash
 # 国内配置：export HF_ENDPOINT=https://hf-mirror.com
 conda create -n llm-speedup python==3.12
 conda activate llm-speedup
 
-pip install "vllm==0.10.2" "sglang[all]==0.5.2" "evalscope[perf]==1.0.1" langdetect immutabledict
-cd llm-compressor
-pip install -e ./
-
-pip install "datasets<4.0.0" # fix evalscope datasets failed
+uv pip install "llmcompressor==0.10.0"
 ```
 
 ## 2. 量化
